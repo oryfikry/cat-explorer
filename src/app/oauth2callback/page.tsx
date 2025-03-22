@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 
-export default function OAuthCallbackPage() {
+// This component uses the search params
+function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -21,12 +21,29 @@ export default function OAuthCallbackPage() {
     }
   }, [searchParams, router]);
   
+  return null;
+}
+
+// Loading component to show while suspense is active
+function LoadingState() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Processing authentication...</h1>
-        <p className="text-gray-500">Please wait while we complete your sign-in.</p>
-      </div>
+    <div className="text-center">
+      <h1 className="text-2xl font-bold mb-4">Processing authentication...</h1>
+      <p className="text-gray-500">Please wait while we complete your sign-in.</p>
     </div>
   );
-} 
+}
+
+export default function OAuthCallbackPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Suspense fallback={<LoadingState />}>
+        <CallbackHandler />
+        <LoadingState />
+      </Suspense>
+    </div>
+  );
+}
+
+// Add a dynamic export config to ensure the page is not statically generated
+export const dynamic = 'force-dynamic'; 

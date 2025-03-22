@@ -19,11 +19,6 @@ export const authOptions: AuthOptions = {
     }),
   ],
   callbacks: {
-    // Custom redirect callback
-    async redirect({ url, baseUrl }) {
-      // Return to home page after sign in
-      return baseUrl;
-    },
     session: async ({ session, user }) => {
       if (session?.user) {
         (session.user as any).id = user.id;
