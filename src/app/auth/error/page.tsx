@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
 
-export default function AuthErrorPage() {
+// Error content component that uses search params
+function ErrorContent() {
   const searchParams = useSearchParams();
   const [errorMessage, setErrorMessage] = useState<string>("Authentication failed.");
   
@@ -54,33 +55,58 @@ export default function AuthErrorPage() {
   }, [searchParams]);
 
   return (
-    <div>
-      <Navbar />
-      <div className="container mx-auto px-4 pt-20 pb-10 flex flex-col items-center">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-          <h1 className="text-2xl font-bold mb-6 text-red-600">Authentication Error</h1>
-          
-          <p className="mb-8 text-gray-700">{errorMessage}</p>
-          
-          <div className="flex flex-col space-y-4">
-            <Button asChild>
-              <Link href="/auth/signin">
-                Try Again
-              </Link>
-            </Button>
-            
-            <Button variant="outline" asChild>
-              <Link href="/">
-                Return to Home
-              </Link>
-            </Button>
-          </div>
-          
-          <p className="mt-8 text-xs text-gray-500">
-            If this problem persists, please contact support for assistance.
-          </p>
-        </div>
+    <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+      <h1 className="text-2xl font-bold mb-6 text-red-600">Authentication Error</h1>
+      
+      <p className="mb-8 text-gray-700">{errorMessage}</p>
+      
+      <div className="flex flex-col space-y-4">
+        <Button asChild>
+          <Link href="/auth/signin">
+            Try Again
+          </Link>
+        </Button>
+        
+        <Button variant="outline" asChild>
+          <Link href="/">
+            Return to Home
+          </Link>
+        </Button>
+      </div>
+      
+      <p className="mt-8 text-xs text-gray-500">
+        If this problem persists, please contact support for assistance.
+      </p>
+    </div>
+  );
+}
+
+// Loading component to show while suspense is active
+function LoadingState() {
+  return (
+    <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+      <h1 className="text-2xl font-bold mb-6 text-red-600">Authentication Error</h1>
+      <p className="mb-8 text-gray-700">Loading error details...</p>
+      <div className="flex flex-col space-y-4">
+        <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-10 bg-gray-100 rounded animate-pulse"></div>
       </div>
     </div>
   );
-} 
+}
+
+export default function AuthErrorPage() {
+  return (
+    <div>
+      <Navbar />
+      <div className="container mx-auto px-4 pt-20 pb-10 flex flex-col items-center">
+        <Suspense fallback={<LoadingState />}>
+          <ErrorContent />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+// Ensure the page is dynamically rendered
+export const dynamic = 'force-dynamic'; 
