@@ -55,6 +55,7 @@ export default function CatList() {
   const [cats, setCats] = useState(mockCats);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
     // Get user's location
@@ -63,14 +64,23 @@ export default function CatList() {
         (position) => {
           setUserLocation([position.coords.longitude, position.coords.latitude]);
           setIsLoading(false);
+          setLocationError(null);
         },
         (error) => {
           console.error("Error getting location:", error);
+          // Set a specific error message for secure context errors
+          if (error.code === 1 && error.message.includes("secure origins")) {
+            setLocationError("Geolocation requires HTTPS. Your location will not be used.");
+          } else {
+            setLocationError(`Unable to get your location: ${error.message}`);
+          }
           setIsLoading(false);
-        }
+        },
+        { timeout: 10000, enableHighAccuracy: false, maximumAge: 0 }
       );
     } else {
       console.error("Geolocation is not supported by this browser.");
+      setLocationError("Geolocation is not supported by your browser.");
       setIsLoading(false);
     }
   }, []);
@@ -117,7 +127,42 @@ export default function CatList() {
 
   return (
     <div>
-      {userLocation ? (
+      {locationError ? (
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md mb-6">
+          <p className="text-sm text-yellow-700">
+            {locationError}
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={() => {
+              if (navigator.geolocation) {
+                setIsLoading(true);
+                navigator.geolocation.getCurrentPosition(
+                  (position) => {
+                    setUserLocation([position.coords.longitude, position.coords.latitude]);
+                    setLocationError(null);
+                    setIsLoading(false);
+                  },
+                  (error) => {
+                    console.error("Error getting location:", error);
+                    if (error.code === 1 && error.message.includes("secure origins")) {
+                      setLocationError("Geolocation requires HTTPS. Your location will not be used.");
+                    } else {
+                      setLocationError(`Unable to get your location: ${error.message}`);
+                    }
+                    setIsLoading(false);
+                  },
+                  { timeout: 10000, enableHighAccuracy: false, maximumAge: 0 }
+                );
+              }
+            }}
+          >
+            Try Again
+          </Button>
+        </div>
+      ) : userLocation ? (
         <p className="text-sm text-gray-500 mb-6">
           Showing cats sorted by distance from your current location
         </p>
@@ -132,13 +177,23 @@ export default function CatList() {
             className="mt-2"
             onClick={() => {
               if (navigator.geolocation) {
+                setIsLoading(true);
                 navigator.geolocation.getCurrentPosition(
                   (position) => {
                     setUserLocation([position.coords.longitude, position.coords.latitude]);
+                    setLocationError(null);
+                    setIsLoading(false);
                   },
                   (error) => {
                     console.error("Error getting location:", error);
-                  }
+                    if (error.code === 1 && error.message.includes("secure origins")) {
+                      setLocationError("Geolocation requires HTTPS. Your location will not be used.");
+                    } else {
+                      setLocationError(`Unable to get your location: ${error.message}`);
+                    }
+                    setIsLoading(false);
+                  },
+                  { timeout: 10000, enableHighAccuracy: false, maximumAge: 0 }
                 );
               }
             }}

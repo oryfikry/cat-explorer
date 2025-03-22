@@ -1,3 +1,5 @@
+"use client";
+
 import Navbar from "@/components/layout/Navbar";
 import { Suspense } from "react";
 import CatList from "./components/CatList";

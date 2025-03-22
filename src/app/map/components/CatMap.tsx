@@ -71,6 +71,7 @@ export default function CatMap() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [defaultCenter, setDefaultCenter] = useState<[number, number]>([0, 0]);
   const [isLoading, setIsLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
     // Get user's location
@@ -81,16 +82,25 @@ export default function CatMap() {
           setUserLocation(userPos);
           setDefaultCenter(userPos);
           setIsLoading(false);
+          setLocationError(null);
         },
         (error) => {
           console.error("Error getting location:", error);
+          // Set a specific error message for secure context errors
+          if (error.code === 1 && error.message.includes("secure origins")) {
+            setLocationError("Geolocation requires HTTPS. Your location will not be used.");
+          } else {
+            setLocationError(`Unable to get your location: ${error.message}`);
+          }
           // Default to center that shows all markers
           setDefaultCenter([20, 0]);
           setIsLoading(false);
-        }
+        },
+        { timeout: 10000, enableHighAccuracy: false, maximumAge: 0 }
       );
     } else {
       console.error("Geolocation is not supported by this browser.");
+      setLocationError("Geolocation is not supported by your browser.");
       setDefaultCenter([20, 0]);
       setIsLoading(false);
     }
@@ -106,6 +116,13 @@ export default function CatMap() {
 
   return (
     <div className="h-[calc(100vh-80px)]">
+      {locationError && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
+          <p className="font-medium">Location Issue:</p>
+          <p>{locationError}</p>
+        </div>
+      )}
+      
       <MapContainer
         center={[defaultCenter[0], defaultCenter[1]]}
         zoom={3}

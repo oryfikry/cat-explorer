@@ -33,6 +33,8 @@ export default function NewCatForm() {
   
   const handleGetLocation = () => {
     setIsGettingLocation(true);
+    setError("");
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -41,12 +43,18 @@ export default function NewCatForm() {
         },
         (error) => {
           console.error("Error getting location:", error);
-          setError("Failed to get your location. Please try again or enter the location manually.");
+          // Set a specific error message for secure context errors
+          if (error.code === 1 && error.message.includes("secure origins")) {
+            setError("Geolocation requires HTTPS. Please try using this feature on a secure (HTTPS) connection or enter location manually.");
+          } else {
+            setError(`Failed to get your location: ${error.message}. Please try again or enter the location manually.`);
+          }
           setIsGettingLocation(false);
-        }
+        },
+        { timeout: 10000, enableHighAccuracy: false, maximumAge: 0 }
       );
     } else {
-      setError("Geolocation is not supported by your browser.");
+      setError("Geolocation is not supported by your browser. Please enter the location manually.");
       setIsGettingLocation(false);
     }
   };

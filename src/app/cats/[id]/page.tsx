@@ -1,14 +1,18 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import { ICat } from "@/models/Cat";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import CatMap from "./components/CatMap";
+import { useParams } from "next/navigation";
 
 // This would be replaced with actual data fetching
-const getCatById = async (id: string): Promise<ICat & { _id: string }> => {
-  // Mock data
-  return {
+const getCatById = (id: string): Promise<ICat & { _id: string }> => {
+  // For now, just return mock data 
+  return Promise.resolve({
     _id: id,
     name: "Whiskers",
     image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=800",
@@ -21,11 +25,60 @@ const getCatById = async (id: string): Promise<ICat & { _id: string }> => {
     userId: "user1",
     createdAt: new Date("2024-03-01"),
     updatedAt: new Date("2024-03-01"),
-  };
+  });
 };
 
-export default async function CatDetailsPage({ params }: { params: { id: string } }) {
-  const cat = await getCatById(params.id);
+export default function CatDetailsPage() {
+  const params = useParams<{ id: string }>();
+  const [cat, setCat] = useState<(ICat & { _id: string }) | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCat = async () => {
+      if (params.id) {
+        try {
+          const catData = await getCatById(params.id);
+          setCat(catData);
+        } catch (error) {
+          console.error("Error fetching cat:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchCat();
+  }, [params.id]);
+
+  if (isLoading) {
+    return (
+      <div>
+        <Navbar />
+        <div className="container mx-auto px-4 pt-20 pb-10 text-center">
+          <p>Loading cat details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cat) {
+    return (
+      <div>
+        <Navbar />
+        <div className="container mx-auto px-4 pt-20 pb-10 text-center">
+          <h1 className="text-3xl font-bold mb-4">Cat Not Found</h1>
+          <p className="text-gray-600 mb-6">
+            Sorry, we couldn't find the cat you're looking for.
+          </p>
+          <Button asChild>
+            <Link href="/explore">
+              Back to Explore
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div>
