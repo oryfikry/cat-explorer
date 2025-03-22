@@ -57,7 +57,7 @@ export default function CatCard({ cat, distance }: CatCardProps) {
         
         <div className="mt-4">
           <Link 
-            href={`/cats/${(cat as any)._id}`}
+            href={`/cats/${String((cat as any)._id || '')}`}
             className="text-sm font-medium text-blue-600 hover:text-blue-800"
           >
             View details →

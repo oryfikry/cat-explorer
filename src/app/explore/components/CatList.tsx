@@ -52,7 +52,7 @@ const mockCats: (ICat & { _id: string })[] = [
 ];
 
 export default function CatList() {
-  const [cats, setCats] = useState(mockCats);
+  const [cats] = useState(mockCats);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);

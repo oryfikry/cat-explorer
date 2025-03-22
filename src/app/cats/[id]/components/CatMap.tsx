@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -23,10 +22,10 @@ interface CatMapProps {
 
 export default function CatMap({ cat }: CatMapProps) {
   // Set default position as the cat's coordinates
-  const [position, setPosition] = useState<[number, number]>([
+  const position: [number, number] = [
     cat.location.coordinates[1], 
     cat.location.coordinates[0]
-  ]);
+  ];
 
   return (
     <MapContainer 

@@ -68,7 +68,7 @@ export default function CatDetailsPage() {
         <div className="container mx-auto px-4 pt-20 pb-10 text-center">
           <h1 className="text-3xl font-bold mb-4">Cat Not Found</h1>
           <p className="text-gray-600 mb-6">
-            Sorry, we couldn't find the cat you're looking for.
+            Sorry, we couldn&apos;t find the cat you&apos;re looking for.
           </p>
           <Button asChild>
             <Link href="/explore">
