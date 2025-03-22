@@ -15,7 +15,7 @@
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.483.0",
-    "mongodb": "^6.15.0",
+    "mongodb": "^5.9.2",
     "mongoose": "^8.12.2",
     "next": "15.2.3",
     "next-auth": "^4.24.11",
