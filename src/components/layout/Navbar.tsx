@@ -12,8 +12,15 @@ export default function Navbar() {
     <nav className="bg-white border-b border-gray-200 px-4 py-2.5 fixed w-full top-0 left-0 z-50">
       <div className="flex flex-wrap justify-between items-center">
         <div className="flex items-center">
-          <Link href="/" className="flex items-center">
-            <span className="self-center text-xl font-semibold whitespace-nowrap">🐱 Cat Explorer</span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image 
+              src="/images/favicon.png" 
+              alt="Cat Explorer Logo" 
+              width={36} 
+              height={36}
+              className="rounded-full" 
+            />
+            <span className="self-center text-xl font-semibold whitespace-nowrap">Cat Explorer</span>
           </Link>
         </div>
         

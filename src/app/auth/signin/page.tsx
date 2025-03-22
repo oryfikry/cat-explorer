@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/layout/Navbar";
+import Image from "next/image";
 
 export default function SignInPage() {
   return (
@@ -12,6 +13,16 @@ export default function SignInPage() {
         <h1 className="text-3xl font-bold mb-8">Sign in to Cat Explorer</h1>
         
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+          <div className="flex justify-center mb-6">
+            <Image 
+              src="/images/favicon.png" 
+              alt="Cat Explorer Logo" 
+              width={80} 
+              height={80} 
+              className="rounded-full"
+            />
+          </div>
+          
           <h2 className="text-xl font-medium mb-6 text-center">Choose a sign in method</h2>
           
           <Button 
