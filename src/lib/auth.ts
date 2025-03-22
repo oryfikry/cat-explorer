@@ -19,11 +19,10 @@ export const authOptions: AuthOptions = {
     }),
   ],
   callbacks: {
-    redirect({ url, baseUrl }) {
-      if (url.startsWith('/oauth2callback')) {
-        return `${baseUrl}/api/auth/callback/google`;
-      }
-      return url.startsWith(baseUrl) ? url : baseUrl;
+    // Custom redirect callback
+    async redirect({ url, baseUrl }) {
+      // Return to home page after sign in
+      return baseUrl;
     },
     session: async ({ session, user }) => {
       if (session?.user) {

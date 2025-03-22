@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         address: body.location.address
       },
       tags: body.tags?.split(",").map((tag: string) => tag.trim()) || [],
-      userId: session.user.id,
+      userId: session.user?.id,
     });
     
     return NextResponse.json(
