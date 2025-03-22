@@ -10,10 +10,15 @@ import Navbar from "@/components/layout/Navbar";
 function ErrorContent() {
   const searchParams = useSearchParams();
   const [errorMessage, setErrorMessage] = useState<string>("Authentication failed.");
+  const [errorDetails, setErrorDetails] = useState<string>("");
   
   useEffect(() => {
     // Get error from URL parameters
     const error = searchParams.get("error");
+    
+    // Log all search params for debugging
+    console.log("Auth error search params:", Object.fromEntries([...searchParams.entries()]));
+    
     if (error) {
       switch (error) {
         case "Configuration":
@@ -48,9 +53,19 @@ function ErrorContent() {
         case "SessionRequired":
           setErrorMessage("You need to be signed in to access this page.");
           break;
+        case "undefined":
+        case undefined:
+          setErrorMessage("Authentication failed. This could be due to a server timeout or connection issue with the database.");
+          break;
         default:
           setErrorMessage(`Authentication error: ${error}`);
       }
+    }
+    
+    // Check for error description for more details
+    const errorDescription = searchParams.get("error_description");
+    if (errorDescription) {
+      setErrorDetails(errorDescription);
     }
   }, [searchParams]);
 
@@ -58,9 +73,15 @@ function ErrorContent() {
     <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
       <h1 className="text-2xl font-bold mb-6 text-red-600">Authentication Error</h1>
       
-      <p className="mb-8 text-gray-700">{errorMessage}</p>
+      <p className="mb-4 text-gray-700">{errorMessage}</p>
       
-      <div className="flex flex-col space-y-4">
+      {errorDetails && (
+        <p className="mb-8 text-sm text-gray-600 p-3 bg-gray-50 rounded border border-gray-200">
+          {errorDetails}
+        </p>
+      )}
+      
+      <div className="flex flex-col space-y-4 mt-6">
         <Button asChild>
           <Link href="/auth/signin">
             Try Again
