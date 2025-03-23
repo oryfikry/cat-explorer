@@ -23,6 +23,43 @@ const withTimeout = <T>(promise: Promise<T>, timeout: number, errorMessage: stri
   ]);
 };
 
+// Database collection names
+const COLLECTIONS = {
+  USERS: "users",
+  ACCOUNTS: "accounts",
+  SESSIONS: "sessions",
+  VERIFICATION_TOKENS: "verification_tokens"
+};
+
+// Initialize collections if they don't exist
+async function ensureCollectionsExist() {
+  try {
+    const client = await connectWithFastFail(3000);
+    const db = client.db();
+    
+    // Get existing collections
+    const collections = await db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    
+    // Create collections if they don't exist
+    for (const collName of Object.values(COLLECTIONS)) {
+      if (!collectionNames.includes(collName)) {
+        console.log(`Creating collection: ${collName}`);
+        await db.createCollection(collName);
+      }
+    }
+    
+    console.log("Collections verified");
+    return true;
+  } catch (error) {
+    console.error("Error ensuring collections exist:", error);
+    return false;
+  }
+}
+
+// Ensure collections exist on startup
+ensureCollectionsExist().catch(console.error);
+
 export const authOptions: AuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
   providers: [
@@ -45,8 +82,11 @@ export const authOptions: AuthOptions = {
         const client = await connectWithFastFail(3000);
         const db = client.db();
         
+        // Ensure collections exist
+        await ensureCollectionsExist();
+        
         // Check if user exists in MongoDB
-        const collection = db.collection("users");
+        const collection = db.collection(COLLECTIONS.USERS);
         const existingUser = await collection.findOne({ email: user.email });
         
         console.log("Sign-in attempt:", { 
@@ -57,11 +97,14 @@ export const authOptions: AuthOptions = {
         });
         
         if (!existingUser && user.email) {
-          // This is a new user, we could add custom fields here if needed
+          // This is a new user
           console.log("New user being created:", user.email);
+          
+          // The adapter should handle user creation, but we can log it
+          // We don't insert directly as the adapter handles this
         }
         
-        // Always return true to avoid timeouts during lengthy DB operations
+        // Always return true to allow sign-in
         return true;
       } catch (error) {
         console.error("Error in signIn callback:", error);
@@ -71,68 +114,26 @@ export const authOptions: AuthOptions = {
     },
     session: async ({ session, user, token }) => {
       try {
-        // Use a timeout to prevent hanging on session retrieval
-        const sessionWithUser = await withTimeout(
-          Promise.resolve().then(async () => {
-            if (session?.user) {
-              // Get user ID from adapter in database session or from JWT token
-              const userId = user?.id || token?.sub;
-              
-              if (!userId) {
-                console.error("No userId found in session or token");
-                return session;
-              }
-              
-              try {
-                // Verify user exists in database for extra safety
-                const client = await connectWithFastFail(2000);
-                const db = client.db();
-                const collection = db.collection("users");
-                
-                // Check for the user in the database
-                let dbUser: Document | null = null;
-                
-                // Try to find by string ID first (simplest case)
-                dbUser = await collection.findOne({ id: userId });
-                
-                // If not found and looks like an ObjectId, try with that
-                if (!dbUser && userId.length === 24 && /^[0-9a-f]{24}$/.test(userId)) {
-                  try {
-                    dbUser = await collection.findOne({ _id: new ObjectId(userId) });
-                  } catch (err) {
-                    console.warn("Failed to convert to ObjectId:", userId);
-                  }
-                }
-                
-                if (dbUser) {
-                  console.log("User found in database:", userId);
-                } else {
-                  console.error("User not found in database:", userId);
-                }
-              } catch (dbError) {
-                // Log but don't fail the session
-                console.error("Error checking user in database:", dbError);
-              }
-              
-              // Return the session with user ID regardless
-              return {
-                ...session,
-                user: {
-                  ...session.user,
-                  id: userId
-                }
-              };
-            }
-            return session;
-          }),
-          3000, // 3 second timeout
-          "Session callback timeout"
-        );
+        // Get user ID from JWT token (strategy is JWT)
+        const userId = token?.sub;
         
-        return sessionWithUser;
+        if (!userId) {
+          console.error("No userId found in token");
+          return session;
+        }
+        
+        // Add the ID to the session without database verification
+        // This is faster and works with JWT strategy
+        return {
+          ...session,
+          user: {
+            ...session.user,
+            id: userId
+          }
+        };
       } catch (error) {
         console.error("Error in session callback:", error);
-        // Return session without user ID in case of timeout
+        // Return session without user ID in case of error
         return session;
       }
     },
@@ -166,12 +167,11 @@ export const authOptions: AuthOptions = {
       }
     },
   },
-  // Reduce session duration to improve performance
+  // Use JWT strategy for better performance and reliability
   session: {
     strategy: "jwt", 
     maxAge: 24 * 60 * 60, // 1 day
   },
-  // Use a shorter JWT duration
   jwt: {
     maxAge: 24 * 60 * 60, // 1 day
   },
