@@ -48,6 +48,27 @@ export default function NewCatForm() {
     };
   }, [cameraStream]);
   
+  // Check if camera is supported by the browser
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+      navigator.mediaDevices.enumerateDevices()
+        .then(devices => {
+          const hasCamera = devices.some(device => device.kind === 'videoinput');
+          setIsCameraSupported(hasCamera);
+          if (!hasCamera) {
+            console.log('No camera detected on this device');
+          }
+        })
+        .catch(err => {
+          console.error('Error checking camera availability:', err);
+          setIsCameraSupported(false);
+        });
+    } else {
+      setIsCameraSupported(false);
+      console.log('MediaDevices API not supported in this browser');
+    }
+  }, []);
+  
   const handleGetLocation = () => {
     setIsGettingLocation(true);
     setError("");
@@ -78,31 +99,91 @@ export default function NewCatForm() {
   
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'environment', // Prefer rear camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
+      setError("");
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setCameraStream(stream);
-        setShowCamera(true);
-        setError("");
+      // Check if browser supports getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Your browser does not support camera access');
       }
-    } catch (err) {
+      
+      console.log('Requesting camera access...');
+      
+      // First try with environment camera (rear camera on mobile)
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play()
+              .then(() => {
+                console.log('Camera started successfully');
+                setCameraStream(stream);
+                setShowCamera(true);
+              })
+              .catch(err => {
+                console.error('Error playing video:', err);
+                throw new Error('Failed to initialize video stream');
+              });
+          };
+        } else {
+          throw new Error('Video element not found');
+        }
+      } catch (envErr) {
+        console.warn('Failed to access environment camera, trying default camera...', envErr);
+        
+        // If environment camera fails, try with any camera
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play()
+              .then(() => {
+                console.log('Default camera started successfully');
+                setCameraStream(stream);
+                setShowCamera(true);
+              })
+              .catch(err => {
+                console.error('Error playing video:', err);
+                throw new Error('Failed to initialize video stream');
+              });
+          };
+        } else {
+          throw new Error('Video element not found');
+        }
+      }
+    } catch (err: any) {
       console.error("Error accessing camera:", err);
-      setError("Unable to access camera. Please check camera permissions or use image URL instead.");
+      setError(`Unable to access camera: ${err.message || 'Unknown error'}. Please check camera permissions or use image URL instead.`);
+      setShowCamera(false);
       setIsCameraSupported(false);
     }
   };
   
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (!videoRef.current || !canvasRef.current) {
+      setError("Cannot capture photo: video or canvas element not available");
+      return;
+    }
+    
+    try {
       const video = videoRef.current;
       const canvas = canvasRef.current;
+      
+      // Ensure video is playing and has dimensions
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        setError("Cannot capture photo: video stream not ready");
+        return;
+      }
       
       // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
@@ -111,11 +192,16 @@ export default function NewCatForm() {
       // Draw current video frame to canvas
       const ctx = canvas.getContext('2d');
       if (ctx) {
+        // Draw video frame to canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         // Convert to data URL
         try {
-          const dataUrl = canvas.toDataURL('image/jpeg');
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Add quality parameter
+          if (dataUrl === 'data:,') {
+            throw new Error('Empty data URL');
+          }
+          
           setCapturedImage(dataUrl);
           
           // Stop camera stream
@@ -125,11 +211,17 @@ export default function NewCatForm() {
           }
           
           setShowCamera(false);
+          console.log('Photo captured successfully');
         } catch (e) {
-          setError("Failed to capture image. Please try again or use image URL.");
-          console.error(e);
+          console.error('Error creating data URL:', e);
+          setError("Failed to process captured image. Please try again or use image URL.");
         }
+      } else {
+        setError("Failed to get canvas context");
       }
+    } catch (err) {
+      console.error("Error in capturePhoto:", err);
+      setError("Failed to capture image. Please try again or use image URL.");
     }
   };
   
