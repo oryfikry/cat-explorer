@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent, useRef } from "react";
+import { useState, useEffect, FormEvent, useRef, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -73,49 +73,50 @@ export default function NewCatForm() {
     }
   };
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    
+    if (files && files.length > 0) {
+      const file = files[0];
       
-      // Basic validation
-      if (!file.type.startsWith('image/')) {
-        setError("Please select an image file (JPG, PNG, etc.)");
+      // Check if file is an image
+      if (!file.type.match('image.*')) {
+        setError("Please select an image file (JPEG, PNG, etc.)");
         return;
       }
       
+      // Check file size (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setError("Image size should be less than 5MB");
         return;
       }
       
-      // Clear any previous error
-      setError("");
-      
-      // Create a preview URL
-      const fileUrl = URL.createObjectURL(file);
-      
-      // Clear previous preview URL if exists
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      
       setSelectedFile(file);
-      setPreviewUrl(fileUrl);
-      setImageUrl(""); // Clear the image URL field as we're using file upload
+      
+      // Create a preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
   
   const handleRemoveFile = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (selectedFile) {
+      setSelectedFile(null);
+      
+      // Clear file input value
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      
+      // Clear preview
+      if (previewUrl) {
+        // No need to revoke object URL for data URLs
+        setPreviewUrl(null);
+      }
     }
-    
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    
-    setSelectedFile(null);
-    setPreviewUrl(null);
   };
   
   const handleSubmit = async (e: FormEvent) => {
@@ -140,17 +141,26 @@ export default function NewCatForm() {
       let finalImageUrl = imageUrl;
       
       // If a file was selected, we'd typically upload it to a storage service
-      // For this example, we'll simulate an upload delay but continue using the URL
-      // In a real app, replace this with actual file upload logic
+      // For this example, we'll store the data URL directly
       if (selectedFile && previewUrl) {
-        // Simulate file upload delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // In a real implementation, you would upload the file and get a URL back
-        // finalImageUrl = await uploadFileToStorage(selectedFile);
-        
-        // For now, we'll use the data URL for local testing
+        // Use the data URL directly (this is the base64 representation of the image)
         finalImageUrl = previewUrl;
+        
+        // If the data URL is too large, you might want to resize it
+        if (finalImageUrl.length > 1_000_000) { // If larger than ~1MB
+          setError("Image is too large. Please select a smaller image or resize it.");
+          setIsSubmitting(false);
+          return;
+        }
+      } else if (imageUrl) {
+        // If using an external URL, validate it
+        try {
+          new URL(imageUrl);
+        } catch (e) {
+          setError("Please enter a valid image URL");
+          setIsSubmitting(false);
+          return;
+        }
       }
       
       // Prepare the data to send to the API

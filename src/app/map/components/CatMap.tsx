@@ -265,10 +265,21 @@ export default function CatMap() {
 
   // Get user location
   useEffect(() => {
+    // Set up timeout for geolocation
+    const locationTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn("Geolocation timed out after 10 seconds");
+        setLocationError("Location request timed out. Default location will be used.");
+        setDefaultCenter([20, 0]); // World view
+        setIsLoading(false);
+      }
+    }, 10000); // 10 seconds timeout
+    
     // Get user's location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          clearTimeout(locationTimeout);
           const userPos: [number, number] = [position.coords.latitude, position.coords.longitude];
           setUserLocation(userPos);
           setDefaultCenter(userPos);
@@ -276,10 +287,13 @@ export default function CatMap() {
           setLocationError(null);
         },
         (error) => {
+          clearTimeout(locationTimeout);
           console.error("Error getting location:", error);
           // Set a specific error message for secure context errors
           if (error.code === 1 && error.message.includes("secure origins")) {
             setLocationError("Geolocation requires HTTPS. Your location will not be used.");
+          } else if (error.code === 3) {
+            setLocationError("Location request timed out. Default location will be used.");
           } else {
             setLocationError(`Unable to get your location: ${error.message}`);
           }
@@ -287,14 +301,22 @@ export default function CatMap() {
           setDefaultCenter([20, 0]);
           setIsLoading(false);
         },
-        { timeout: 10000, enableHighAccuracy: false, maximumAge: 0 }
+        { 
+          timeout: 10000,  // 10 seconds timeout
+          enableHighAccuracy: false, 
+          maximumAge: 60000 // Accept positions up to 1 minute old
+        }
       );
     } else {
+      clearTimeout(locationTimeout);
       console.error("Geolocation is not supported by this browser.");
       setLocationError("Geolocation is not supported by your browser.");
       setDefaultCenter([20, 0]);
       setIsLoading(false);
     }
+    
+    // Clean up timeout if component unmounts
+    return () => clearTimeout(locationTimeout);
   }, []);
 
   if (isLoading) {
