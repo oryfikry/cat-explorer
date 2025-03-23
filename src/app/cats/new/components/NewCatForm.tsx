@@ -29,6 +29,9 @@ export default function NewCatForm() {
   // Location handling
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   
+  // Declare isLoading state for form submission
+  const [isLoading, setIsLoading] = useState(false);
+  
   useEffect(() => {
     // Redirect if not logged in
     if (status === "unauthenticated") {
@@ -73,6 +76,93 @@ export default function NewCatForm() {
     }
   };
   
+  // Image resizing function to reduce image size below 1MB
+  const resizeImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // Create image object for dimension calculation
+      const img = new globalThis.Image();
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        if (!e.target?.result) {
+          return reject(new Error("Failed to read file"));
+        }
+        
+        img.src = e.target.result as string;
+        
+        img.onload = () => {
+          // Get original dimensions
+          let width = img.width;
+          let height = img.height;
+          let quality = 0.7; // Start with 70% quality
+          
+          // Calculate aspect ratio
+          const aspectRatio = width / height;
+          
+          // If image is very large, reduce dimensions
+          // Max dimensions 1600px (width) or 1200px (height)
+          const MAX_WIDTH = 1600;
+          const MAX_HEIGHT = 1200;
+          
+          if (width > MAX_WIDTH) {
+            width = MAX_WIDTH;
+            height = Math.round(width / aspectRatio);
+          }
+          
+          if (height > MAX_HEIGHT) {
+            height = MAX_HEIGHT;
+            width = Math.round(height * aspectRatio);
+          }
+          
+          // Create canvas for resizing
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw image on canvas
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return reject(new Error("Could not get canvas context"));
+          }
+          
+          // Draw with white background to handle transparent PNGs
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          
+          // Draw the image
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to data URL with reduced quality
+          const processImage = () => {
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            // Check if the data URL is below 1MB
+            if (dataUrl.length > 1024 * 1024 && quality > 0.1) {
+              // If still too large, reduce quality and try again
+              quality -= 0.1;
+              processImage();
+            } else {
+              resolve(dataUrl);
+            }
+          };
+          
+          processImage();
+        };
+        
+        img.onerror = () => {
+          reject(new Error("Failed to load image"));
+        };
+      };
+      
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+      };
+      
+      reader.readAsDataURL(file);
+    });
+  };
+  
+  // Handle file selection
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     
@@ -85,20 +175,31 @@ export default function NewCatForm() {
         return;
       }
       
-      // Check file size (limit to 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Image size should be less than 5MB");
+      // Check file size (limit to 10MB for initial upload)
+      if (file.size > 10 * 1024 * 1024) {
+        setError("Image size should be less than 10MB");
         return;
       }
       
       setSelectedFile(file);
+      setIsLoading(true);
+      setError("");
       
-      // Create a preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Create a preview and resize if needed
+      resizeImage(file)
+        .then(resizedDataUrl => {
+          setPreviewUrl(resizedDataUrl);
+          // Show file size in MB for debugging
+          const sizeInMB = (resizedDataUrl.length * 0.75) / (1024 * 1024); // Base64 is ~33% larger than binary
+          console.log(`Resized image size: ${sizeInMB.toFixed(2)}MB`);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error("Error resizing image:", err);
+          setError("Error processing image. Please try another file.");
+          handleRemoveFile();
+          setIsLoading(false);
+        });
     }
   };
   
@@ -128,7 +229,7 @@ export default function NewCatForm() {
     }
     
     // Check if we have either imageUrl or selectedFile
-    if (!name || (!imageUrl && !selectedFile) || !coordinates) {
+    if (!name || (!imageUrl && !previewUrl) || !coordinates) {
       setError("Please fill in all required fields, provide an image, and a location.");
       return;
     }
@@ -140,15 +241,13 @@ export default function NewCatForm() {
       // Determine which image to use (file upload or URL)
       let finalImageUrl = imageUrl;
       
-      // If a file was selected, we'd typically upload it to a storage service
-      // For this example, we'll store the data URL directly
-      if (selectedFile && previewUrl) {
-        // Use the data URL directly (this is the base64 representation of the image)
+      // If a file was selected, use the already resized data URL
+      if (previewUrl) {
         finalImageUrl = previewUrl;
         
-        // If the data URL is too large, you might want to resize it
-        if (finalImageUrl.length > 1_000_000) { // If larger than ~1MB
-          setError("Image is too large. Please select a smaller image or resize it.");
+        // Verify the image size is below 1MB
+        if (finalImageUrl.length > 1.3 * 1024 * 1024) { // Allow a small buffer
+          setError("Image is still too large after resizing. Please select a smaller image.");
           setIsSubmitting(false);
           return;
         }
@@ -266,7 +365,7 @@ export default function NewCatForm() {
               <div className="flex items-center justify-center">
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors">
-                    Select a photo from your device
+                    {isLoading ? "Processing..." : "Select a photo from your device"}
                   </div>
                   <input
                     id="file-upload"
@@ -275,17 +374,31 @@ export default function NewCatForm() {
                     accept="image/*"
                     onChange={handleFileChange}
                     className="hidden"
+                    disabled={isLoading}
                   />
                 </label>
               </div>
               
               <p className="text-xs text-center text-gray-500">
-                Supported formats: JPG, PNG, GIF, etc. Max size: 5MB
+                Supported formats: JPG, PNG, GIF, etc. Max size: 10MB
+              </p>
+              <p className="text-xs text-center text-blue-500">
+                Images will be automatically resized to under 1MB
               </p>
             </div>
             
             {/* File preview */}
-            {previewUrl && (
+            {isLoading && (
+              <div className="mt-4 text-center p-4">
+                <svg className="animate-spin h-6 w-6 mx-auto text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="mt-2 text-sm text-blue-600">Resizing image...</p>
+              </div>
+            )}
+            
+            {previewUrl && !isLoading && (
               <div className="mt-4">
                 <div className="relative aspect-video w-full overflow-hidden rounded-md">
                   <Image 
