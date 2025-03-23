@@ -21,13 +21,10 @@ export default function NewCatForm() {
   const [address, setAddress] = useState("");
   const [coordinates, setCoordinates] = useState<[number, number] | null>(null);
   
-  // Camera capture
-  const [showCamera, setShowCamera] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [isCameraSupported, setIsCameraSupported] = useState(true);
+  // File upload
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Location handling
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -39,35 +36,14 @@ export default function NewCatForm() {
     }
   }, [status, router]);
   
-  // Clean up camera stream when component unmounts
+  // Clean up file preview URL when component unmounts
   useEffect(() => {
     return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
       }
     };
-  }, [cameraStream]);
-  
-  // Check if camera is supported by the browser
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
-      navigator.mediaDevices.enumerateDevices()
-        .then(devices => {
-          const hasCamera = devices.some(device => device.kind === 'videoinput');
-          setIsCameraSupported(hasCamera);
-          if (!hasCamera) {
-            console.log('No camera detected on this device');
-          }
-        })
-        .catch(err => {
-          console.error('Error checking camera availability:', err);
-          setIsCameraSupported(false);
-        });
-    } else {
-      setIsCameraSupported(false);
-      console.log('MediaDevices API not supported in this browser');
-    }
-  }, []);
+  }, [previewUrl]);
   
   const handleGetLocation = () => {
     setIsGettingLocation(true);
@@ -97,141 +73,49 @@ export default function NewCatForm() {
     }
   };
   
-  const startCamera = async () => {
-    try {
-      setError("");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
       
-      // Check if browser supports getUserMedia
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Your browser does not support camera access');
-      }
-      
-      console.log('Requesting camera access...');
-      
-      // First try with environment camera (rear camera on mobile)
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play()
-              .then(() => {
-                console.log('Camera started successfully');
-                setCameraStream(stream);
-                setShowCamera(true);
-              })
-              .catch(err => {
-                console.error('Error playing video:', err);
-                throw new Error('Failed to initialize video stream');
-              });
-          };
-        } else {
-          throw new Error('Video element not found');
-        }
-      } catch (envErr) {
-        console.warn('Failed to access environment camera, trying default camera...', envErr);
-        
-        // If environment camera fails, try with any camera
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true 
-        });
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play()
-              .then(() => {
-                console.log('Default camera started successfully');
-                setCameraStream(stream);
-                setShowCamera(true);
-              })
-              .catch(err => {
-                console.error('Error playing video:', err);
-                throw new Error('Failed to initialize video stream');
-              });
-          };
-        } else {
-          throw new Error('Video element not found');
-        }
-      }
-    } catch (err: any) {
-      console.error("Error accessing camera:", err);
-      setError(`Unable to access camera: ${err.message || 'Unknown error'}. Please check camera permissions or use image URL instead.`);
-      setShowCamera(false);
-      setIsCameraSupported(false);
-    }
-  };
-  
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) {
-      setError("Cannot capture photo: video or canvas element not available");
-      return;
-    }
-    
-    try {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      
-      // Ensure video is playing and has dimensions
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        setError("Cannot capture photo: video stream not ready");
+      // Basic validation
+      if (!file.type.startsWith('image/')) {
+        setError("Please select an image file (JPG, PNG, etc.)");
         return;
       }
       
-      // Set canvas dimensions to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      // Draw current video frame to canvas
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Draw video frame to canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Convert to data URL
-        try {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // Add quality parameter
-          if (dataUrl === 'data:,') {
-            throw new Error('Empty data URL');
-          }
-          
-          setCapturedImage(dataUrl);
-          
-          // Stop camera stream
-          if (cameraStream) {
-            cameraStream.getTracks().forEach(track => track.stop());
-            setCameraStream(null);
-          }
-          
-          setShowCamera(false);
-          console.log('Photo captured successfully');
-        } catch (e) {
-          console.error('Error creating data URL:', e);
-          setError("Failed to process captured image. Please try again or use image URL.");
-        }
-      } else {
-        setError("Failed to get canvas context");
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image size should be less than 5MB");
+        return;
       }
-    } catch (err) {
-      console.error("Error in capturePhoto:", err);
-      setError("Failed to capture image. Please try again or use image URL.");
+      
+      // Clear any previous error
+      setError("");
+      
+      // Create a preview URL
+      const fileUrl = URL.createObjectURL(file);
+      
+      // Clear previous preview URL if exists
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
+      setSelectedFile(file);
+      setPreviewUrl(fileUrl);
+      setImageUrl(""); // Clear the image URL field as we're using file upload
     }
   };
   
-  const resetCamera = () => {
-    setCapturedImage(null);
-    // Stop existing stream if any
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
+  const handleRemoveFile = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
+    
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    
+    setSelectedFile(null);
+    setPreviewUrl(null);
   };
   
   const handleSubmit = async (e: FormEvent) => {
@@ -242,8 +126,8 @@ export default function NewCatForm() {
       return;
     }
     
-    // Check if we have either imageUrl or capturedImage
-    if (!name || (!imageUrl && !capturedImage) || !coordinates) {
+    // Check if we have either imageUrl or selectedFile
+    if (!name || (!imageUrl && !selectedFile) || !coordinates) {
       setError("Please fill in all required fields, provide an image, and a location.");
       return;
     }
@@ -253,10 +137,10 @@ export default function NewCatForm() {
     
     try {
       // In a real app, this would be an API call to save the cat data
-      // including uploading the captured image if present
+      // including uploading the selected file if present
       
-      // If using captured image, we would upload it to server/cloud storage
-      // const imageToUse = capturedImage || imageUrl;
+      // If using uploaded file, we would upload it to server/cloud storage
+      // const imageToUse = selectedFile ? await uploadFile(selectedFile) : imageUrl;
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -269,7 +153,7 @@ export default function NewCatForm() {
       setImageUrl("");
       setAddress("");
       setCoordinates(null);
-      setCapturedImage(null);
+      handleRemoveFile();
       
       // Redirect to explore page after a delay
       setTimeout(() => {
@@ -322,108 +206,101 @@ export default function NewCatForm() {
           />
         </div>
         
-        {/* Camera and Image Section */}
+        {/* Image Upload and URL Section */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <label className="block text-sm font-medium text-gray-700">
               Cat Photo *
             </label>
-            
-            <div className="space-x-2">
-              {isCameraSupported && !showCamera && !capturedImage && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={startCamera}
-                >
-                  Take Photo
-                </Button>
-              )}
+          </div>
+          
+          {/* File Upload */}
+          <div className="border-2 border-dashed border-gray-300 rounded-md p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-center">
+                <label htmlFor="file-upload" className="cursor-pointer">
+                  <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors">
+                    Select a photo from your device
+                  </div>
+                  <input
+                    id="file-upload"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
               
-              {capturedImage && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    resetCamera();
-                    startCamera();
-                  }}
-                >
-                  Retake Photo
-                </Button>
-              )}
+              <p className="text-xs text-center text-gray-500">
+                Supported formats: JPG, PNG, GIF, etc. Max size: 5MB
+              </p>
+            </div>
+            
+            {/* File preview */}
+            {previewUrl && (
+              <div className="mt-4">
+                <div className="relative aspect-video w-full overflow-hidden rounded-md">
+                  <Image 
+                    src={previewUrl} 
+                    alt="Selected cat image" 
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleRemoveFile}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Separator */}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">OR</span>
             </div>
           </div>
           
-          {/* Camera view */}
-          {showCamera && (
-            <div className="space-y-2">
-              <div className="relative rounded-md overflow-hidden aspect-video bg-gray-100">
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  playsInline 
-                  className="w-full h-full object-cover"
+          {/* Image URL */}
+          <div>
+            <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
+              Image URL {!selectedFile && '*'}
+            </label>
+            <input
+              type="url"
+              id="image"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="https://example.com/cat-image.jpg"
+              required={!selectedFile}
+              disabled={!!selectedFile}
+            />
+            
+            {imageUrl && !selectedFile && (
+              <div className="mt-2 relative aspect-video w-full overflow-hidden rounded-md">
+                <Image 
+                  src={imageUrl} 
+                  alt="Cat preview" 
+                  fill
+                  className="object-cover"
+                  onError={() => setError("Invalid image URL. Please provide a valid URL.")}
                 />
               </div>
-              
-              <div className="flex justify-center">
-                <Button 
-                  type="button"
-                  onClick={capturePhoto}
-                  className="mx-auto"
-                >
-                  Capture
-                </Button>
-              </div>
-              
-              <canvas ref={canvasRef} className="hidden" />
-            </div>
-          )}
-          
-          {/* Captured photo preview */}
-          {capturedImage && (
-            <div className="mt-2 relative aspect-video w-full overflow-hidden rounded-md">
-              <Image 
-                src={capturedImage} 
-                alt="Captured cat" 
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
-          
-          {/* Show image URL field if no captured image */}
-          {!capturedImage && (
-            <div>
-              <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-                Image URL {!capturedImage && '*'}
-              </label>
-              <input
-                type="url"
-                id="image"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com/cat-image.jpg"
-                required={!capturedImage}
-              />
-              
-              {imageUrl && (
-                <div className="mt-2 relative aspect-video w-full overflow-hidden rounded-md">
-                  <Image 
-                    src={imageUrl} 
-                    alt="Cat preview" 
-                    fill
-                    className="object-cover"
-                    onError={() => setError("Invalid image URL. Please provide a valid URL.")}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
         {/* Description */}
@@ -501,7 +378,7 @@ export default function NewCatForm() {
           <Button 
             type="submit" 
             className="w-full"
-            disabled={isSubmitting || !coordinates || (!imageUrl && !capturedImage)}
+            disabled={isSubmitting || !coordinates || (!imageUrl && !selectedFile)}
           >
             {isSubmitting ? "Adding Cat..." : "Add Cat"}
           </Button>
