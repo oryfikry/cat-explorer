@@ -128,7 +128,7 @@ export default function CatDetailsPage() {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="md:flex">
             <div className="md:w-1/2">
-              <div className="relative h-80 md:h-full w-full">
+              <div className="relative aspect-video w-full">
                 <Image
                   src={cat.image}
                   alt={cat.name}

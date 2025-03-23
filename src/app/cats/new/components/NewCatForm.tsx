@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { X } from "lucide-react";
 
 export default function NewCatForm() {
   const { data: session, status } = useSession();
@@ -96,22 +97,25 @@ export default function NewCatForm() {
           let height = img.height;
           let quality = 0.7; // Start with 70% quality
           
-          // Calculate aspect ratio
-          const aspectRatio = width / height;
+          // Force 16:9 aspect ratio
+          const targetAspectRatio = 16 / 9;
+          
+          // Calculate new dimensions maintaining 16:9
+          if (width / height > targetAspectRatio) {
+            // Image is wider than 16:9, crop width
+            width = Math.round(height * targetAspectRatio);
+          } else {
+            // Image is taller than 16:9, crop height
+            height = Math.round(width / targetAspectRatio);
+          }
           
           // If image is very large, reduce dimensions
-          // Max dimensions 1600px (width) or 1200px (height)
+          // Max dimensions 1600px (width) or 900px (height) for 16:9
           const MAX_WIDTH = 1600;
-          const MAX_HEIGHT = 1200;
           
           if (width > MAX_WIDTH) {
             width = MAX_WIDTH;
-            height = Math.round(width / aspectRatio);
-          }
-          
-          if (height > MAX_HEIGHT) {
-            height = MAX_HEIGHT;
-            width = Math.round(height * aspectRatio);
+            height = Math.round(width / targetAspectRatio);
           }
           
           // Create canvas for resizing
@@ -129,35 +133,39 @@ export default function NewCatForm() {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, width, height);
           
-          // Draw the image
-          ctx.drawImage(img, 0, 0, width, height);
+          // Center the image to crop to 16:9
+          const sourceX = (img.width - width) / 2;
+          const sourceY = (img.height - height) / 2;
           
-          // Convert to data URL with reduced quality
-          const processImage = () => {
-            const dataUrl = canvas.toDataURL('image/jpeg', quality);
-            
-            // Check if the data URL is below 1MB
-            if (dataUrl.length > 1024 * 1024 && quality > 0.1) {
-              // If still too large, reduce quality and try again
-              quality -= 0.1;
-              processImage();
-            } else {
-              resolve(dataUrl);
-            }
-          };
+          // Draw the image with cropping to maintain 16:9
+          ctx.drawImage(
+            img,
+            Math.max(0, sourceX),
+            Math.max(0, sourceY),
+            Math.min(img.width, width),
+            Math.min(img.height, height),
+            0,
+            0,
+            width,
+            height
+          );
           
-          processImage();
+          // Convert to base64 and compress
+          let result = canvas.toDataURL('image/jpeg', quality);
+          
+          // Check size and reduce quality if needed
+          while (result.length > 1024 * 1024 && quality > 0.3) {
+            quality -= 0.1;
+            result = canvas.toDataURL('image/jpeg', quality);
+          }
+          
+          resolve(result);
         };
         
-        img.onerror = () => {
-          reject(new Error("Failed to load image"));
-        };
+        img.onerror = (err) => reject(err);
       };
       
-      reader.onerror = () => {
-        reject(new Error("Failed to read file"));
-      };
-      
+      reader.onerror = (err) => reject(err);
       reader.readAsDataURL(file);
     });
   };
@@ -449,14 +457,27 @@ export default function NewCatForm() {
             />
             
             {imageUrl && !selectedFile && (
-              <div className="mt-2 relative aspect-video w-full overflow-hidden rounded-md">
-                <Image 
-                  src={imageUrl} 
-                  alt="Cat preview" 
-                  fill
-                  className="object-cover"
-                  onError={() => setError("Invalid image URL. Please provide a valid URL.")}
-                />
+              <div className="mt-4">
+                <div className="relative w-36 aspect-video">
+                  <Image
+                    src={imageUrl}
+                    alt="Selected file"
+                    fill
+                    className="object-cover rounded-md"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={() => {
+                      setImageUrl("");
+                      fileInputRef.current!.value = "";
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>

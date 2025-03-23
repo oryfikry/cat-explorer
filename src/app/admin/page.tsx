@@ -174,7 +174,7 @@ export default function AdminPage() {
                     <tr key={cat._id}>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0 h-16 w-16 relative rounded overflow-hidden">
+                          <div className="flex-shrink-0 w-20 aspect-video relative rounded overflow-hidden">
                             <Image
                               src={cat.image}
                               alt={cat.name}

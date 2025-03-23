@@ -89,7 +89,7 @@ export default function CatMap({ cat }: CatMapProps) {
           <Popup>
             <div className="max-w-[250px]">
               <h3 className="font-medium text-lg">{cat.name}</h3>
-              <div className="my-2 w-full h-40 relative rounded overflow-hidden">
+              <div className="my-2 w-full aspect-video relative rounded overflow-hidden">
                 <img 
                   src={cat.image} 
                   alt={cat.name}

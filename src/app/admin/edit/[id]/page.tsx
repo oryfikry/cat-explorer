@@ -191,36 +191,57 @@ export default function EditCatPage() {
           let width = img.width;
           let height = img.height;
           
-          // Maintain aspect ratio
+          // Force 16:9 aspect ratio
+          const targetAspectRatio = 16 / 9;
+          
+          // Calculate new dimensions maintaining 16:9
+          if (width / height > targetAspectRatio) {
+            // Image is wider than 16:9, crop width
+            width = Math.round(height * targetAspectRatio);
+          } else {
+            // Image is taller than 16:9, crop height
+            height = Math.round(width / targetAspectRatio);
+          }
+          
+          // If image is still too large, scale down while maintaining 16:9
           const maxSize = 800;
-          if (width > height && width > maxSize) {
-            height = (height / width) * maxSize;
+          if (width > maxSize) {
             width = maxSize;
-          } else if (height > maxSize) {
-            width = (width / height) * maxSize;
-            height = maxSize;
+            height = Math.round(width / targetAspectRatio);
           }
           
           canvas.width = width;
           canvas.height = height;
           
           const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Center the image to crop to 16:9
+          const sourceX = (img.width - width) / 2;
+          const sourceY = (img.height - height) / 2;
+          
+          // Draw the image with cropping to maintain 16:9
+          ctx?.drawImage(
+            img,
+            Math.max(0, sourceX),
+            Math.max(0, sourceY),
+            Math.min(img.width, width),
+            Math.min(img.height, height),
+            0,
+            0,
+            width,
+            height
+          );
           
           // Start with high quality
           let quality = 0.9;
           let result = canvas.toDataURL("image/jpeg", quality);
           
           // Reduce quality until size is below 1MB
-          const reduceQuality = () => {
-            if (result.length > 1024 * 1024 && quality > 0.3) {
-              quality -= 0.1;
-              result = canvas.toDataURL("image/jpeg", quality);
-              reduceQuality();
-            }
-          };
+          while (result.length > 1024 * 1024 && quality > 0.3) {
+            quality -= 0.1;
+            result = canvas.toDataURL("image/jpeg", quality);
+          }
           
-          reduceQuality();
           resolve(result);
         };
         img.onerror = (err) => reject(err);
@@ -414,7 +435,7 @@ export default function EditCatPage() {
               <Label htmlFor="image">Image</Label>
               <div className="flex items-start gap-4">
                 {catData.image && (
-                  <div className="w-32 h-32 relative rounded overflow-hidden">
+                  <div className="w-36 aspect-video relative rounded overflow-hidden">
                     <Image
                       src={catData.image}
                       alt="Cat preview"

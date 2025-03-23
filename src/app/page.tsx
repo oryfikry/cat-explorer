@@ -30,7 +30,7 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-              <div className="relative h-[400px] w-full rounded-lg overflow-hidden">
+              <div className="relative aspect-video w-full rounded-lg overflow-hidden">
                 <Image
                   src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000"
                   alt="Stray cat"
