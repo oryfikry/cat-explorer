@@ -34,7 +34,7 @@ export default function CatCard({ cat, distance, id }: CatCardProps) {
             <span className="text-sm text-gray-500">
               {distance < 1 
                 ? `${Math.round(distance * 1000)} m` 
-                : `${distance.toFixed(1)} km`}
+                : `${distance.toFixed(1)} km`} <span className="text-xs">From You</span>
             </span>
           )}
         </div>

@@ -13,7 +13,7 @@ export default function MapPage() {
   return (
     <div>
       <Navbar />
-      <div className="pt-16">
+      <div className="pt-15">
         <MapWithNoSSR />
       </div>
     </div>

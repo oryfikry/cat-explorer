@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import CatMap from "./components/CatMap";
 import { useParams } from "next/navigation";
+import { X } from "lucide-react";
 
 // Mock cat in case API fails
 const mockCat: ICat & { _id: string } = {
@@ -30,6 +31,7 @@ export default function CatDetailsPage() {
   const [cat, setCat] = useState<(ICat & { _id: string }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
 
   useEffect(() => {
     const fetchCat = async () => {
@@ -86,11 +88,16 @@ export default function CatDetailsPage() {
     fetchCat();
   }, [params.id]);
 
+  // Function to toggle image preview modal
+  const toggleImagePreview = () => {
+    setIsImagePreviewOpen(!isImagePreviewOpen);
+  };
+
   if (isLoading) {
     return (
       <div>
         <Navbar />
-        <div className="container mx-auto px-4 pt-20 pb-10 text-center">
+        <div className="container mx-auto px-4 pt-25 pb-10 text-center">
           <p>Loading cat details...</p>
         </div>
       </div>
@@ -101,7 +108,7 @@ export default function CatDetailsPage() {
     return (
       <div>
         <Navbar />
-        <div className="container mx-auto px-4 pt-20 pb-10 text-center">
+        <div className="container mx-auto px-4 pt-25 pb-10 text-center">
           <h1 className="text-3xl font-bold mb-4">Cat Not Found</h1>
           <p className="text-gray-600 mb-6">
             {error || "Sorry, we couldn't find the cat you're looking for."}
@@ -117,7 +124,7 @@ export default function CatDetailsPage() {
   return (
     <div>
       <Navbar />
-      <div className="container mx-auto px-4 pt-20 pb-10">
+      <div className="container mx-auto px-4 pt-25 pb-10">
         <div className="mb-6">
           <Link href="/explore" className="text-blue-600 hover:underline flex items-center gap-1">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -128,7 +135,10 @@ export default function CatDetailsPage() {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="md:flex">
             <div className="md:w-1/2">
-              <div className="relative aspect-video w-full">
+              <div 
+                className="relative aspect-video w-full cursor-pointer"
+                onClick={toggleImagePreview}
+              >
                 <Image
                   src={cat.image}
                   alt={cat.name}
@@ -136,6 +146,11 @@ export default function CatDetailsPage() {
                   className="object-cover"
                   unoptimized={cat.image.startsWith('data:')} // Skip optimization for data URLs
                 />
+                <div className="absolute inset-0 bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                  <div className="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm opacity-0 hover:opacity-100">
+                    Click to zoom
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -189,12 +204,34 @@ export default function CatDetailsPage() {
           
           <div className="p-6 border-t border-gray-200">
             <h2 className="text-lg font-semibold mb-4">Location on Map</h2>
-            <div className="h-[300px] rounded-lg overflow-hidden">
+            <div className="h-[500px] rounded-lg overflow-hidden">
               <CatMap cat={cat} />
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Image Preview Modal */}
+      {isImagePreviewOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4" onClick={toggleImagePreview}>
+          <div className="relative max-w-7xl max-h-full w-full h-full flex items-center justify-center">
+            <button 
+              className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleImagePreview();
+              }}
+            >
+              <X size={24} />
+            </button>
+            <img 
+              src={cat.image} 
+              alt={cat.name} 
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
