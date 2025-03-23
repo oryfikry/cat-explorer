@@ -37,6 +37,11 @@ export default function Navbar() {
               <Link href="/cats/new" className="text-gray-600 hover:text-blue-600">
                 Add Cat
               </Link>
+              {session.user?.email === "oryza4444@gmail.com" && (
+                <Link href="/admin" className="text-purple-600 hover:text-purple-800">
+                  Admin
+                </Link>
+              )}
               <div className="flex items-center space-x-2">
                 {session.user?.image ? (
                   <Image 

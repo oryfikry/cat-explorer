@@ -1,8 +1,8 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -35,25 +35,50 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot : "button"
-
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "destructive" | "outline" | "link";
+  size?: "default" | "sm" | "lg";
+  href?: string;
 }
 
-export { Button, buttonVariants }
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", size = "default", href, children, ...props }, ref) => {
+    const buttonClasses = cn(
+      "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
+      {
+        "bg-blue-600 text-white hover:bg-blue-700": variant === "default",
+        "bg-red-600 text-white hover:bg-red-700": variant === "destructive",
+        "border border-gray-300 bg-transparent hover:bg-gray-50": variant === "outline",
+        "underline-offset-4 hover:underline text-blue-600": variant === "link",
+        "h-10 py-2 px-4 text-sm": size === "default",
+        "h-8 py-1 px-3 text-xs rounded-md": size === "sm",
+        "h-12 py-3 px-6 text-base rounded-md": size === "lg",
+      },
+      className
+    );
+
+    // If href is provided, render a Link component
+    if (href) {
+      return (
+        <Link href={href} className={buttonClasses}>
+          {children}
+        </Link>
+      );
+    }
+
+    // Otherwise render a regular button
+    return (
+      <button
+        className={buttonClasses}
+        ref={ref}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
+);
+Button.displayName = "Button"
+
+export { Button }

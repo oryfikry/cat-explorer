@@ -21,16 +21,12 @@ export default function Home() {
                 <p className="text-lg text-gray-600 max-w-[600px]">
                   Cat Explorer helps you find, document, and share stray cats in your neighborhood and around the world. Join our community today!
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button asChild size="lg">
-                    <Link href="/explore">
-                      Explore Cats
-                    </Link>
+                <div className="mt-8 flex flex-wrap gap-4">
+                  <Button href="/explore" size="lg">
+                    Explore Cat Sightings
                   </Button>
-                  <Button asChild variant="outline" size="lg">
-                    <Link href="/map">
-                      View Map
-                    </Link>
+                  <Button href="/map" variant="outline" size="lg">
+                    View Map
                   </Button>
                 </div>
               </div>

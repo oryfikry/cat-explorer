@@ -320,6 +320,7 @@ export default function CatList() {
             <div key={cat._id}>
               <CatCard 
                 cat={cat} 
+                id={cat._id}
                 distance={
                   userLocation 
                     ? calculateDistance(

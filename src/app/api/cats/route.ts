@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
       },
       tags: data.tags ? data.tags.split(",").map((tag: string) => tag.trim()) : [],
       userId: userId,
+      userEmail: session.user.email,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

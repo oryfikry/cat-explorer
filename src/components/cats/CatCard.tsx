@@ -1,13 +1,22 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ICat } from "@/models/Cat";
+import { Button } from "../ui/button";
 
 interface CatCardProps {
-  cat: ICat;
+  cat: ICat & { _id?: string };
   distance?: number;
+  id?: string;
 }
 
-export default function CatCard({ cat, distance }: CatCardProps) {
+export default function CatCard({ cat, distance, id }: CatCardProps) {
+  // Use the provided id prop first, then fall back to cat._id if available
+  const catId = id || cat._id;
+  
+  if (!catId) {
+    console.error("No ID provided for cat:", cat.name);
+  }
+  
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden max-h-100 min-h-100">
       <div className="relative h-48 w-full">
@@ -56,12 +65,11 @@ export default function CatCard({ cat, distance }: CatCardProps) {
         )}
         
         <div className="mt-4">
-          <Link 
-            href={`/cats/${String((cat as any)._id || '')}`}
-            className="text-sm font-medium text-blue-600 hover:text-blue-800"
-          >
-            View details →
-          </Link>
+          {catId && (
+            <Link href={`/cats/${catId}`} className="block mt-3">
+              <Button size="sm" className="w-full">View Details</Button>
+            </Link>
+          )}
         </div>
       </div>
     </div>

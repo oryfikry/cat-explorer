@@ -106,10 +106,8 @@ export default function CatDetailsPage() {
           <p className="text-gray-600 mb-6">
             {error || "Sorry, we couldn't find the cat you're looking for."}
           </p>
-          <Button asChild>
-            <Link href="/explore">
-              Back to Explore
-            </Link>
+          <Button href="/explore">
+            Back to Explore
           </Button>
         </div>
       </div>
@@ -181,10 +179,8 @@ export default function CatDetailsPage() {
               )}
               
               <div className="mt-6 flex gap-4">
-                <Button asChild variant="outline">
-                  <Link href={`/map?highlight=${cat._id}`}>
-                    View on Map
-                  </Link>
+                <Button variant="outline" href={`/map?highlight=${cat._id}`}>
+                  View on Map
                 </Button>
                 <Button>Report Issue</Button>
               </div>
