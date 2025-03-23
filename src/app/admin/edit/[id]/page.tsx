@@ -262,11 +262,12 @@ export default function EditCatPage() {
     setError(null);
     
     try {
-      // Keep original image if not changed
+      // Always include the image field, either the updated or original one
       const dataToSubmit = {
         ...catData,
-        image: catData.image === originalImage ? undefined : catData.image,
-        tags: catData.tags ? catData.tags.split(",").map(tag => tag.trim()) : undefined,
+        // If image wasn't changed, use the original image instead of undefined
+        image: catData.image === originalImage ? originalImage : catData.image,
+        tags: catData.tags ? catData.tags.split(",").map(tag => tag.trim()) : [],
       };
       
       const response = await fetch(`/api/cats/${catId}`, {

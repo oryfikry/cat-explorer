@@ -18,7 +18,7 @@ export default function CatCard({ cat, distance, id }: CatCardProps) {
   }
   
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden max-h-100 min-h-100">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="relative w-full aspect-video">
         <Image
           src={cat.image}
