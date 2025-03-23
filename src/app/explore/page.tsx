@@ -8,7 +8,7 @@ export default function ExplorePage() {
   return (
     <div>
       <Navbar />
-      <div className="container mx-auto px-4 pt-20 pb-10">
+      <div className="container mx-auto px-4 pt-25 sm:pt-20 pb-10">
         <h1 className="text-3xl font-bold mb-6">Explore Stray Cats</h1>
         
         <div className="mb-8">

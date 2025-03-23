@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Cat } from "@/models/Cat";
 import mongoose from "mongoose";
+import clientPromise, { connectWithFastFail } from "@/lib/mongodb";
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -25,33 +26,93 @@ export async function GET(request: NextRequest) {
     const lng = searchParams.get("lng");
     const maxDistance = searchParams.get("distance") || "10"; // Default 10km
     
-    await connectDB();
-    
-    // If location is provided, do a geospatial query
-    if (lat && lng) {
-      const cats = await Cat.find({
-        "location.coordinates": {
-          $near: {
-            $geometry: {
-              type: "Point",
-              coordinates: [parseFloat(lng), parseFloat(lat)]
-            },
-            $maxDistance: parseInt(maxDistance) * 1000 // Convert km to meters
+    // Try to use MongoDB native driver first for better performance
+    try {
+      const client = await connectWithFastFail();
+      const db = client.db();
+      const catsCollection = db.collection("cats");
+      
+      // If location is provided, do a geospatial query
+      if (lat && lng) {
+        // Implement geospatial query with native MongoDB driver
+        const cats = await catsCollection.find({
+          "location.coordinates": {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: [parseFloat(lng), parseFloat(lat)]
+              },
+              $maxDistance: parseInt(maxDistance) * 1000 // Convert km to meters
+            }
           }
-        }
-      })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+        })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .toArray();
+        
+        return NextResponse.json(cats);
+      }
+      
+      // Otherwise return the most recent cats using native driver
+      const cats = await catsCollection.find({})
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .toArray();
+      
+      return NextResponse.json(cats);
+      
+    } catch (nativeError) {
+      console.warn("Native MongoDB driver query failed, falling back to Mongoose:", nativeError);
+      
+      // Fall back to Mongoose if native driver fails
+      await connectDB();
+      
+      // If location is provided, do a geospatial query
+      if (lat && lng) {
+        const cats = await Cat.find({
+          "location.coordinates": {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: [parseFloat(lng), parseFloat(lat)]
+              },
+              $maxDistance: parseInt(maxDistance) * 1000 // Convert km to meters
+            }
+          }
+        })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean();
+        
+        return NextResponse.json(cats);
+      }
+      
+      // Otherwise return the most recent cats
+      const cats = await Cat.find({})
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
       
       return NextResponse.json(cats);
     }
+  } catch (error) {
+    console.error("Error fetching cats:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch cats" },
+      { status: 500 }
+    );
+  }
+}
+
+// GET handler to get all cats
+export async function GETAll() {
+  try {
+    const client = await connectWithFastFail();
+    const db = client.db();
+    const catsCollection = db.collection("cats");
     
-    // Otherwise return the most recent cats
-    const cats = await Cat.find({})
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean();
+    // Get all cats, sort by createdAt in descending order (newest first)
+    const cats = await catsCollection.find({}).sort({ createdAt: -1 }).toArray();
     
     return NextResponse.json(cats);
   } catch (error) {
@@ -71,45 +132,75 @@ export async function POST(request: NextRequest) {
     // Check if user is authenticated
     if (!session || !session.user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Authentication required" },
         { status: 401 }
       );
     }
     
-    // Parse request body
-    const body = await request.json();
+    // Parse the request body
+    const data = await request.json();
     
     // Validate required fields
-    if (!body.name || !body.image || !body.location?.coordinates) {
+    if (!data.name || !data.image || !data.location?.coordinates) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
     
-    await connectDB();
+    // Get userId safely from the session
+    let userId = null;
+    if (session.user && typeof session.user === 'object') {
+      // Try to get the ID from various possible properties
+      userId = 
+        // @ts-ignore - NextAuth types may not include these but they could exist
+        session.user.id || 
+        // @ts-ignore
+        session.user.sub || 
+        // @ts-ignore  
+        session.user._id;
+    }
     
-    // Create new cat
-    const newCat = await Cat.create({
-      name: body.name,
-      image: body.image,
-      description: body.description,
+    if (!userId) {
+      console.error("Cannot identify user ID from session:", session);
+      return NextResponse.json(
+        { error: "User identification failed" },
+        { status: 500 }
+      );
+    }
+    
+    // Connect to MongoDB
+    const client = await connectWithFastFail();
+    const db = client.db();
+    const catsCollection = db.collection("cats");
+    
+    // Prepare the cat document
+    const newCat = {
+      name: data.name,
+      image: data.image,
+      description: data.description || "",
       location: {
-        coordinates: body.location.coordinates,
-        address: body.location.address
+        coordinates: data.location.coordinates,
+        address: data.location.address || "",
       },
-      tags: body.tags?.split(",").map((tag: string) => tag.trim()) || [],
-      userId: session.user?.id,
-    });
+      tags: data.tags ? data.tags.split(",").map((tag: string) => tag.trim()) : [],
+      userId: userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
     
-    return NextResponse.json(
-      { message: "Cat created successfully", cat: newCat },
-      { status: 201 }
-    );
+    // Insert the cat into the database
+    const result = await catsCollection.insertOne(newCat);
+    
+    return NextResponse.json({ 
+      success: true, 
+      id: result.insertedId,
+      message: "Cat added successfully" 
+    });
   } catch (error) {
-    console.error("Error creating cat:", error);
+    console.error("Error adding cat:", error);
     return NextResponse.json(
-      { error: "Failed to create cat" },
+      { error: "Failed to add cat" },
       { status: 500 }
     );
   }

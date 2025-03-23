@@ -9,7 +9,7 @@ interface CatCardProps {
 
 export default function CatCard({ cat, distance }: CatCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden max-h-100 min-h-100">
       <div className="relative h-48 w-full">
         <Image
           src={cat.image}

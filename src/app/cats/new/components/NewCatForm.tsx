@@ -136,13 +136,49 @@ export default function NewCatForm() {
     setError("");
     
     try {
-      // In a real app, this would be an API call to save the cat data
-      // including uploading the selected file if present
+      // Determine which image to use (file upload or URL)
+      let finalImageUrl = imageUrl;
       
-      // If using uploaded file, we would upload it to server/cloud storage
-      // const imageToUse = selectedFile ? await uploadFile(selectedFile) : imageUrl;
+      // If a file was selected, we'd typically upload it to a storage service
+      // For this example, we'll simulate an upload delay but continue using the URL
+      // In a real app, replace this with actual file upload logic
+      if (selectedFile && previewUrl) {
+        // Simulate file upload delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // In a real implementation, you would upload the file and get a URL back
+        // finalImageUrl = await uploadFileToStorage(selectedFile);
+        
+        // For now, we'll use the data URL for local testing
+        finalImageUrl = previewUrl;
+      }
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare the data to send to the API
+      const catData = {
+        name,
+        image: finalImageUrl,
+        description,
+        location: {
+          coordinates,
+          address,
+        },
+        tags,
+      };
+      
+      // Make API call to save the cat
+      const response = await fetch('/api/cats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(catData),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to add cat');
+      }
       
       setSuccess(true);
       
@@ -159,8 +195,8 @@ export default function NewCatForm() {
       setTimeout(() => {
         router.push("/explore");
       }, 2000);
-    } catch (err) {
-      setError("Failed to add cat. Please try again.");
+    } catch (err: any) {
+      setError(`Failed to add cat: ${err.message || 'Unknown error'}`);
       console.error(err);
     } finally {
       setIsSubmitting(false);

@@ -5,10 +5,10 @@ import CatCard from "@/components/cats/CatCard";
 import { Button } from "@/components/ui/button";
 import { ICat } from "@/models/Cat";
 
-// This would be replaced with actual API data fetching
+// Mock data to supplement real data
 const mockCats: (ICat & { _id: string })[] = [
   {
-    _id: "1",
+    _id: "mock1",
     name: "Whiskers",
     image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=800",
     description: "Friendly orange tabby cat seen near the park",
@@ -17,12 +17,12 @@ const mockCats: (ICat & { _id: string })[] = [
       address: "Central Park, New York",
     },
     tags: ["orange", "friendly", "tabby"],
-    userId: "user1",
+    userId: "mockuser1",
     createdAt: new Date("2024-03-01"),
     updatedAt: new Date("2024-03-01"),
   },
   {
-    _id: "2",
+    _id: "mock2",
     name: "Shadow",
     image: "https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=800",
     description: "Black cat that hangs out near the coffee shop",
@@ -31,12 +31,12 @@ const mockCats: (ICat & { _id: string })[] = [
       address: "Downtown, Los Angeles",
     },
     tags: ["black", "shy"],
-    userId: "user2",
+    userId: "mockuser2",
     createdAt: new Date("2024-03-05"),
     updatedAt: new Date("2024-03-05"),
   },
   {
-    _id: "3",
+    _id: "mock3",
     name: "Mittens",
     image: "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=800",
     description: "Calico cat with white paws",
@@ -45,17 +45,92 @@ const mockCats: (ICat & { _id: string })[] = [
       address: "Covent Garden, London",
     },
     tags: ["calico", "playful"],
-    userId: "user3",
+    userId: "mockuser3",
     createdAt: new Date("2024-03-10"),
     updatedAt: new Date("2024-03-10"),
   },
+  {
+    _id: "mock4",
+    name: "Bella",
+    image: "https://images.unsplash.com/photo-1529778873920-4da4926a72c2?q=80&w=800",
+    description: "Beautiful tabby who likes to sit on window sills",
+    location: {
+      coordinates: [139.6917, 35.6895] as [number, number], // Tokyo
+      address: "Shibuya, Tokyo",
+    },
+    tags: ["tabby", "friendly", "window-watcher"],
+    userId: "mockuser4",
+    createdAt: new Date("2024-03-15"),
+    updatedAt: new Date("2024-03-15"),
+  },
+  {
+    _id: "mock5",
+    name: "Leo",
+    image: "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800",
+    description: "Ginger cat with a distinctive lion-like mane",
+    location: {
+      coordinates: [2.3522, 48.8566] as [number, number], // Paris
+      address: "Near Eiffel Tower, Paris",
+    },
+    tags: ["ginger", "fluffy", "majestic"],
+    userId: "mockuser5",
+    createdAt: new Date("2024-03-20"),
+    updatedAt: new Date("2024-03-20"),
+  }
 ];
 
 export default function CatList() {
-  const [cats] = useState(mockCats);
+  const [cats, setCats] = useState<(ICat & { _id: string })[]>([]);
+  const [isLoadingCats, setIsLoadingCats] = useState(true);
+  const [catsError, setCatsError] = useState<string | null>(null);
+  
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Fetch cats from API
+  useEffect(() => {
+    const fetchCats = async () => {
+      setIsLoadingCats(true);
+      setCatsError(null);
+      
+      try {
+        let url = '/api/cats';
+        
+        // Add location parameters if user location is available
+        if (userLocation) {
+          url += `?lat=${userLocation[1]}&lng=${userLocation[0]}&distance=50`;
+        }
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch cats');
+        }
+        
+        const data = await response.json();
+        
+        // If we have no real data or very few cats, add some mock ones
+        if (data.length < 3) {
+          setCats([...data, ...mockCats]);
+        } else {
+          setCats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching cats:', error);
+        setCatsError('Failed to load cats from API. Showing mock data instead.');
+        // If API fails, show mock data
+        setCats(mockCats);
+      } finally {
+        setIsLoadingCats(false);
+      }
+    };
+    
+    // Only fetch cats after we have determined user location (or failed to)
+    if (!isLoading) {
+      fetchCats();
+    }
+  }, [userLocation, isLoading]);
 
   useEffect(() => {
     // Get user's location
@@ -202,26 +277,43 @@ export default function CatList() {
           </Button>
         </div>
       )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedCats.map((cat) => (
-          <div key={cat._id}>
-            <CatCard 
-              cat={cat} 
-              distance={
-                userLocation 
-                  ? calculateDistance(
-                      userLocation[1], 
-                      userLocation[0], 
-                      cat.location.coordinates[1], 
-                      cat.location.coordinates[0]
-                    ) 
-                  : undefined
-              } 
-            />
-          </div>
-        ))}
-      </div>
+      
+      {catsError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
+          <p className="font-medium">Note:</p>
+          <p>{catsError}</p>
+        </div>
+      )}
+      
+      {isLoadingCats ? (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded mb-4">
+          Loading cats...
+        </div>
+      ) : sortedCats.length === 0 ? (
+        <div className="bg-gray-50 border border-gray-200 text-gray-800 px-4 py-3 rounded mb-4">
+          No cats found. Try adding some!
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedCats.map((cat) => (
+            <div key={cat._id}>
+              <CatCard 
+                cat={cat} 
+                distance={
+                  userLocation 
+                    ? calculateDistance(
+                        userLocation[1], 
+                        userLocation[0], 
+                        cat.location.coordinates[1], 
+                        cat.location.coordinates[0]
+                      ) 
+                    : undefined
+                } 
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 } 
